@@ -4,6 +4,7 @@
 module UnitTestHelpers
   ( emptyCliState
   , executorCli
+  , stubItem
   , stubLevel
   , stubState
   , stubCliState
@@ -14,6 +15,7 @@ module UnitTestHelpers
   , testFactionId
   , testItemId
   , testItemKind
+  , testItemKindId
   , testLevelId
 -- #ifdef EXPOSE_INTERNAL
 --     -- * Internal operations
@@ -53,6 +55,7 @@ import           Game.LambdaHack.Common.Actor
 import           Game.LambdaHack.Common.Area
 import           Game.LambdaHack.Common.ClientOptions
 import           Game.LambdaHack.Common.Faction
+import           Game.LambdaHack.Common.Item
 import           Game.LambdaHack.Common.Kind
 import           Game.LambdaHack.Common.Level
 import           Game.LambdaHack.Common.MonadStateRead
@@ -70,6 +73,7 @@ import qualified Game.LambdaHack.Core.Dice as Dice
 import qualified Game.LambdaHack.Definition.Ability as Ability
 import           Game.LambdaHack.Definition.Color
 import           Game.LambdaHack.Definition.Flavour
+import           Game.LambdaHack.Definition.DefsInternal
 
 import Content.FactionKind
 
@@ -82,7 +86,7 @@ fchanFrontendStub =
   ChanFrontend $ \case
     FrontFrame _ -> putStr "FrontFrame"
     FrontDelay _ -> putStr "FrontDelay"
-    FrontKey _ _ -> do return KMP { kmpKeyMod=K.escKM, kmpPointer=PointUI 0 0 }
+    FrontKey _ _ -> do return KMP { kmpKeyMod=K.returnKM, kmpPointer=PointUI 0 0 }
     FrontPressed -> do return False
     FrontDiscardKey -> putStr "FrontDiscardKey"
     FrontResetKeys -> putStr "FrontResetKeys"
@@ -140,6 +144,8 @@ testItemId = toEnum 113
 testFactionId :: FactionId 
 testFactionId = toEnum 114
 
+testItemKindId :: ContentId ItemKind
+testItemKindId = toContentId 115
 
 
 testArea :: Area
@@ -223,6 +229,10 @@ testItemKind = ItemKind
   , ikit     = []
   }
 
+stubItem :: Item
+stubItem = Item { jkind = IdentityObvious testItemKindId, jfid = Nothing, jflavour = dummyFlavour }
+
+
 testActorWithItem :: Actor
 testActorWithItem = 
   testActor { beqp = EM.singleton testItemId (1,[])}
@@ -232,11 +242,13 @@ stubState :: State
 stubState = let singletonFactionUpdate _ = EM.singleton testFactionId testFaction
                 singletonDungeonUpdate _ = EM.singleton testLevelId stubLevel
                 singletonActorDUpdate _ = EM.singleton testActorId testActor
+                singletonItemDictUpdate _ = EM.singleton testItemId stubItem
                 singletonActorMaxSkillsUpdate _ = EM.singleton testActorId Ability.zeroSkills
                 copsUpdate oldCOps = oldCOps{corule=((corule oldCOps){rWidthMax=testLevelDimension, rHeightMax=testLevelDimension})}
                 stateWithMaxLevelDimension = updateCOpsAndCachedData copsUpdate emptyState
                 stateWithFaction = updateFactionD singletonFactionUpdate stateWithMaxLevelDimension
-                stateWithActorD = updateActorD singletonActorDUpdate stateWithFaction
+                stateWithItemDict = updateItemD singletonItemDictUpdate stateWithFaction
+                stateWithActorD = updateActorD singletonActorDUpdate stateWithItemDict
                 stateWithActorMaxSkills = updateActorMaxSkills singletonActorMaxSkillsUpdate stateWithActorD
                 stateWithDungeon = updateDungeon singletonDungeonUpdate stateWithActorMaxSkills
             in stateWithDungeon
@@ -275,7 +287,7 @@ stubCliState = CliState
   }
 
 testCliStateWithItem :: CliState
-testCliStateWithItem = stubCliState { cliState = testStateWithItem }
+testCliStateWithItem = stubCliState { cliState = testStateWithItem, cliClient = updateLeader testActorId testStateWithItem (cliClient stubCliState) }
 
 -- | Client state mock transformation monad.
 newtype CliMock a = CliMock

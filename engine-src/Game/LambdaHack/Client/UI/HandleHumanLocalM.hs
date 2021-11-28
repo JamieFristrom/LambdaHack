@@ -35,6 +35,8 @@ module Game.LambdaHack.Client.UI.HandleHumanLocalM
 
 import Prelude ()
 
+import Debug.Trace
+
 import Game.LambdaHack.Core.Prelude
 
 import           Data.Either
@@ -92,7 +94,6 @@ import           Game.LambdaHack.Content.RuleKind
 import qualified Game.LambdaHack.Definition.Ability as Ability
 import qualified Game.LambdaHack.Definition.Color as Color
 import           Game.LambdaHack.Definition.Defs
-import           Game.LambdaHack.Definition.DefsInternal
 -- * Macro
 
 macroHuman :: MonadClientUI m => [String] -> m ()
@@ -357,13 +358,13 @@ chooseItemProjectHuman leader ts = do
         tr : _ -> (HumanCmd.tiverb tr, HumanCmd.tiobject tr)
       verb = makePhrase [verb1]
       triggerSyms = triggerSymbols ts
-  mpsuitReq <- psuitReq leader
+  mpsuitReq <- trace "psuit up" (psuitReq leader)
   case mpsuitReq of
     -- If xhair aim invalid, no item is considered a (suitable) missile.
     Left err -> failMsg err
     Right psuitReqFun -> do
       itemSel <- getsSession sitemSel
-      case itemSel of
+      case traceShow itemSel itemSel of
         Just (_, _, True) -> return Nothing
         Just (iid, fromCStore, False) -> do
           -- We don't validate vs @ts@ here, because player has selected
@@ -380,15 +381,15 @@ chooseItemProjectHuman leader ts = do
               chooseItemProjectHuman leader ts
         Nothing -> do
           let psuit =
-                return $ SuitsSomething $ \_ itemFull _kit ->
+                trace "return" $ return $ trace "psuit SuitsSomething" $ SuitsSomething $ \_ itemFull _kit ->
                   -- Here the player does not explicitly pick an item,
                   -- so we may exclude precious unknown items, etc.
                   either (const False) snd (psuitReqFun itemFull)
                   && (null triggerSyms
-                      || IK.isymbol (itemKind itemFull) `elem` triggerSyms)
+                      || trace "booya" (IK.isymbol (itemKind itemFull) `elem` triggerSyms))
               prompt = makePhrase ["What", object1, "to"]
               promptGeneric = "What to"
-          ggi <- getGroupItem leader psuit prompt promptGeneric verb "fling"
+          ggi <- trace "getGroupItem" $ getGroupItem leader psuit prompt promptGeneric verb "fling"
                               stores
           case ggi of
             Right (fromCStore, iid) -> do
@@ -552,7 +553,7 @@ chooseItemApplyHuman leader ts = do
       prompt = makePhrase ["What", object1, "to"]
       promptGeneric = "What to"
   itemSel <- getsSession sitemSel
-  case itemSel of
+  case traceShow itemSel itemSel of
     Just (_, _, True) -> return Nothing
     Just (iid, fromCStore, False) -> do
       -- We don't validate vs @ts@ here, because player has selected
@@ -569,7 +570,7 @@ chooseItemApplyHuman leader ts = do
     Nothing -> do
       let psuit :: m Suitability
           psuit = do
-            mp <- permittedApplyClient leader
+            mp <- trace "psuit up" (permittedApplyClient leader)
             return $ SuitsSomething $ \cstore itemFull kit ->
               fromRight False (mp cstore itemFull kit)
               && (null triggerSyms

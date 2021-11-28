@@ -27,11 +27,8 @@ import           Game.LambdaHack.Definition.Flavour
 import           UnitTestHelpers
 
 
-stubItem :: Item
-stubItem = Item { jkind = IdentityObvious (toContentId 0), jfid = Nothing, jflavour = dummyFlavour }
-
 testItemFull :: ItemFull
-testItemFull = ItemFull { itemBase = stubItem, itemKindId = toContentId 0, itemKind = testItemKind, itemDisco = ItemDiscoFull emptyAspectRecord, itemSuspect = False }
+testItemFull = ItemFull { itemBase = stubItem, itemKindId = testItemKindId, itemKind = testItemKind, itemDisco = ItemDiscoFull emptyAspectRecord, itemSuspect = False }
 
 
 handleHumanLocalMUnitTests :: TestTree 

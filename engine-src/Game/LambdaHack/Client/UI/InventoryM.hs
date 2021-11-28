@@ -16,6 +16,8 @@ module Game.LambdaHack.Client.UI.InventoryM
 
 import Prelude ()
 
+import Debug.Trace
+
 import Game.LambdaHack.Core.Prelude
 
 import           Data.Either
@@ -350,7 +352,7 @@ transition leader psuit prompt promptGeneric permitMulitple
         mleader <- getsClient sleader
         let leader2 = fromMaybe (error "UI manipulation killed the pointman")
                                 mleader
-        transition leader2 psuit prompt promptGeneric permitMulitple
+        transition (trace ("leader to recursive transition - "++show leader2) leader2) psuit prompt promptGeneric permitMulitple
                    cCur2 cRest2 itemDialogState2
   actorCurAndMaxSk <- getsState $ getActorMaxSkills leader
   body <- getsState $ getActorBody leader
@@ -377,7 +379,7 @@ transition leader psuit prompt promptGeneric permitMulitple
            , defAction = do
                merror <- pickLeaderWithPointer leader
                case merror of
-                 Nothing -> recCall cCur cRest itemDialogState
+                 Nothing -> recCall (trace "mError Nothing recCall" cCur) cRest itemDialogState
                  Just{} -> return $ Left "not a menu item nor teammate position"
                              -- don't inspect the error, it's expected
            })
@@ -396,14 +398,14 @@ transition leader psuit prompt promptGeneric permitMulitple
                 , defAction = do
                     err <- pointmanCycleLevel leader False direction
                     let !_A = assert (isNothing err `blame` err) ()
-                    recCall cCur cRest itemDialogState
+                    recCall (trace "cycleLevelkeyDef recCall" cCur) cRest itemDialogState
                 })
       changeContainerDef direction defLabel =
         let (cCurAfterCalm, cRestAfterCalm) = nextContainers direction
         in DefItemKey
           { defLabel
           , defCond = cCurAfterCalm /= cCur
-          , defAction = recCall cCurAfterCalm cRestAfterCalm itemDialogState
+          , defAction = recCall (trace "changeContainerDef recCall" cCurAfterCalm) cRestAfterCalm itemDialogState
           }
       nextContainers direction = case direction of
         Forward -> case cRest ++ [cCur] of
@@ -429,9 +431,9 @@ transition leader psuit prompt promptGeneric permitMulitple
                , defAction = do
                    err <- pointmanCycle leader False direction
                    let !_A = assert (isNothing err `blame` err) ()
-                   recCall cCur cRest itemDialogState
+                   recCall (trace "cycleKeyDef recCall" cCur) cRest itemDialogState
                })
-  case cCur of
+  case trace ("cCur "++show cCur) cCur of
     MSkills -> runDefSkills keyDefsCommon promptChosen leader
     MPlaces -> runDefPlaces keyDefsCommon promptChosen
     MFactions -> runDefFactions keyDefsCommon promptChosen
@@ -439,19 +441,19 @@ transition leader psuit prompt promptGeneric permitMulitple
     _ -> do
       bagHuge <- getsState $ \s -> accessModeBag leader s cCur
       itemToF <- getsState $ flip itemToFull
-      mpsuit <- psuit  -- when throwing, this sets eps and checks xhair validity
-      psuitFun <- case mpsuit of
-        SuitsEverything -> return $ \_ _ _ -> True
-        SuitsSomething f -> return f  -- When throwing, this function takes
+      mpsuit <- trace ("<- mpsuit") psuit  -- when throwing, this sets eps and checks xhair validity
+      psuitFun <- trace ("<-psuitFun") $ case mpsuit of
+        SuitsEverything -> trace "SuitsEverything" $ return $ \_ _ _ -> True
+        SuitsSomething f -> trace "SuitsSomething" $ return f  -- When throwing, this function takes
                                       -- missile range into accout.
       ItemRoles itemRoles <- getsSession sroles
-      let slore = loreFromMode cCur
-          itemRole = itemRoles EM.! slore
-          bagAll = EM.filterWithKey (\iid _ -> iid `ES.member` itemRole) bagHuge
-          mstore = case cCur of
+      let slore = trace "store =" $ loreFromMode cCur
+          itemRole = trace "itemRole = " $ itemRoles EM.! slore
+          bagAll = trace "bagAll = " $ EM.filterWithKey (\iid _ -> iid `ES.member` itemRole) bagHuge
+          mstore = case trace ("inner cCur "++show cCur) cCur of
             MStore store -> Just store
             _ -> Nothing
-          filterP = psuitFun mstore . itemToF
+          filterP = trace ("psuitFun evaluated") $ psuitFun mstore . itemToF
           bagSuit = EM.filterWithKey filterP bagAll
           bagFiltered = case itemDialogState of
             ISuitable -> bagSuit
@@ -462,7 +464,7 @@ transition leader psuit prompt promptGeneric permitMulitple
               in (km, DefItemKey
                { defLabel = Right km
                , defCond = bagAll /= bagSuit
-               , defAction = recCall cCur cRest $ case itemDialogState of
+               , defAction = trace ("recCall") $ recCall cCur (trace ("cRest "++show cRest) cRest) $ case itemDialogState of
                                                     ISuitable -> IAll
                                                     IAll -> ISuitable
                })
@@ -479,7 +481,7 @@ transition leader psuit prompt promptGeneric permitMulitple
                 _ -> error "transition: multiple items not for MStore"
             }
           keyDefs = keyDefsCommon ++ filter (defCond . snd) keyDefsExtra
-      runDefInventory keyDefs promptChosen leader cCur iids
+      runDefInventory (trace "keyDefs" keyDefs) promptChosen leader cCur iids
 
 runDefMessage :: MonadClientUI m
               => [(K.KM, DefItemKey m)]
@@ -498,11 +500,11 @@ runDefAction :: MonadClientUI m
              -> (MenuSlot -> Either Text ResultItemDialogMode)
              -> KeyOrSlot
              -> m (Either Text ResultItemDialogMode)
-runDefAction keyDefs slotDef ekm = case ekm of
+runDefAction keyDefs slotDef ekm = case traceShow ekm ekm of
   Left km -> case km `lookup` keyDefs of
-    Just keyDef -> defAction keyDef
+    Just keyDef -> trace "defAction" $ defAction keyDef
     Nothing -> error $ "unexpected key:" `showFailure` K.showKM km
-  Right slot -> return $! slotDef slot
+  Right slot -> trace "return thingy" $ return $! slotDef slot
 
 runDefSkills :: MonadClientUI m
              => [(K.KM, DefItemKey m)] -> Text -> ActorId
@@ -644,7 +646,7 @@ runDefInventory keyDefs promptChosen leader dmode iids = do
   ekm <- displayChoiceScreenWithDefItemKey
            (okxItemLoreInline promptFun meleeSkill dmode iids)
            sli itemKeys (show dmode)
-  runDefAction keyDefs slotDef ekm
+  runDefAction (trace "keyDefs to runDefAction" keyDefs) slotDef ekm
 
 skillCloseUp :: MonadClientUI m => ActorId -> MenuSlot -> m (Text, AttrString)
 skillCloseUp leader slot = do
