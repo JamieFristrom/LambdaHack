@@ -3,7 +3,7 @@
 module Game.LambdaHack.Definition.Defs
   ( GroupName, displayGroupName
   , ContentId, contentIdIndex
-  , ContentSymbol, displayContentSymbol
+  , ContentSymbol , displayContentSymbol, toContentSymbol
   , X, Y
   , Freqs, renameFreqs
   , Rarity, linearInterpolation

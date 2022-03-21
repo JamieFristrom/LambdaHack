@@ -316,7 +316,7 @@ drawFrameActor drawnLevelId = do
               ActorUI{bsymbol, bcolor} = sactorUI EM.! aid
               Item{jfid} = getItemBody btrunk s
               symbol | bhp > 0 = bsymbol
-                     | otherwise = '%'
+                     | otherwise = DefsInternal.toContentSymbol '%'
               dominated = maybe False (/= bfid) jfid
               bg = if | bwatch == WSleep -> Color.HighlightBlue
                       | dominated -> if bfid == side  -- dominated by us
@@ -331,14 +331,14 @@ drawFrameActor drawnLevelId = do
                 in if hpCheckWarning || calmCheckWarning
                    then Color.Red
                    else bcolor
-         in Color.attrCharToW32 $ Color.AttrChar Color.Attr{..} symbol
+         in Color.attrCharToW32 $ Color.AttrChar Color.Attr{..} (DefsInternal.displayContentSymbol symbol)
       {-# INLINE viewProj #-}
       viewProj as = case as of
         aid : _ ->
           let ActorUI{bsymbol, bcolor} = sactorUI EM.! aid
               bg = Color.HighlightNone
               fg = bcolor
-         in Color.attrCharToW32 $ Color.AttrChar Color.Attr{..} bsymbol
+         in Color.attrCharToW32 $ Color.AttrChar Color.Attr{..} (DefsInternal.displayContentSymbol bsymbol)
         [] -> error $ "lproj not sparse" `showFailure` ()
       mapVAL :: forall a s. (a -> Color.AttrCharW32) -> [(PointI, a)]
              -> FrameST s
@@ -812,7 +812,7 @@ drawSelected drawnLevelId width selected = do
                     | otherwise -> Color.HighlightNone
             sattr = Color.Attr {Color.fg = bcolor, bg}
         in Color.attrCharToW32 $ Color.AttrChar sattr
-           $ if bhp > 0 then bsymbol else '%'
+           $ DefsInternal.displayContentSymbol $ if bhp > 0 then bsymbol else DefsInternal.toContentSymbol '%'
       maxViewed = width - 2
       len = length oursUI
       star = let fg = case ES.size selected of
